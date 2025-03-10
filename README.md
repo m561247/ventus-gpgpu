@@ -18,6 +18,29 @@ Home page of Ventus-GPGPU project: [opengpgpu.org.cn](https://opengpgpu.org.cn/)
 
 You can get the release version of software toolchain [here](https://opengpgpu.org.cn/html/web/project/release/index.html).
 
+## Citation and Presentation Materials
+
+Our work has been accepted to **The 42nd IEEE International Conference on Computer Design (ICCD 2024)**. If you find this repository helpful for your research, please consider citing our paper:
+
+### Paper Information
+
+J. Li et al., "Ventus: A High-performance Open-source GPGPU Based on RISC-V and Its Vector Extension," 2024 IEEE 42nd International Conference on Computer Design (ICCD), Milan, Italy, 2024, pp. 276-279, doi: 10.1109/ICCD63220.2024.00049.
+
+```bibtex
+@INPROCEEDINGS{10818098,
+  author={Li, Jingzhou and Yang, Kexiang and Jin, Chufeng and Liu, Xudong and Yang, Zexia and Yu, Fangfei and Shi, Yujie and Ma, Mingyuan and Kong, Li and Zhou, Jing and Wu, Hualin and He, Hu},
+  booktitle={2024 IEEE 42nd International Conference on Computer Design (ICCD)}, 
+  title={Ventus: A High-performance Open-source GPGPU Based on RISC-V and Its Vector Extension}, 
+  year={2024},
+  pages={276-279},
+  keywords={Generative AI;Large language models;Graphics processing units;Full stack;Computer architecture;Vectors;Software;Open source hardware;Field programmable gate arrays;Software development management;GPGPU;Open-source Design;RISC-V;Vector},
+  doi={10.1109/ICCD63220.2024.00049}}
+```
+
+### Presentation Slides
+
+The presentation slides from ICCD 2024 are available in the [`docs`](https://github.com/THU-DSP-LAB/ventus-gpgpu/tree/master/docs) folder of this repository. You can view or download them directly [here](https://github.com/THU-DSP-LAB/ventus-gpgpu/blob/master/docs/ICCD2024_Ventus_Presentation.pdf).
+
 ## Architecture
 
 The micro-architecture overview of Ventus(乘影) is shown below.
@@ -63,11 +86,81 @@ make init
 
 4. to run tests, use `make test`. Output waveform file is at `test_run_dir` . Due to the limitations of `chiseltest`, we have customized another simulation framework based on Verilator. Please refer to the `sim-verilator` folder's README for more details.
 
-### Understanding Program Output in Our Project
+## Kernel Metadata and Data File Format
+
+Each test case for the **ventus-gpgpu** project includes two key files for describing kernel-specific information:
+
+1. `.metadata` file: Contains metadata that provides detailed information about the kernel.
+2. `.data` file: Contains initialization data for various memory buffers used by the kernel.
+
+This section explains the format and purpose of these files.
+
+### `.metadata` File Structure
+
+The `.metadata` file contains the following structure:
+
+```c++
+struct meta_data {
+    uint64_t start_addr;          // Instruction start address
+    uint64_t kernel_id;           // Kernel ID
+    uint64_t kernel_size[3];      // Workgroup dimensions (3D)
+    uint64_t wf_size;             // Number of threads per warp
+    uint64_t wg_size;             // Number of warps per workgroup
+    uint64_t metaDataBaseAddr;    // CSR_KNL value
+    uint64_t ldsSize;             // Size of local memory (shared memory) per workgroup
+    uint64_t pdsSize;             // Size of private memory per thread
+    uint64_t sgprUsage;           // Scalar register usage per warp
+    uint64_t vgprUsage;           // Vector register usage per warp
+    uint64_t pdsBaseAddr;         // Base address of kernel private memory. 
+                                  // This value will be converted by the driver/test stimuli 
+                                  // into the starting address for each workgroup, 
+                                  // with an offset calculated as wf_size * wg_size * pdsSize.
+    uint64_t num_buffer;          // Number of buffers (includes instruction buffer, kernel 
+                                  // argument buffer, and private memory)
+    uint64_t buffer_base[num_buffer];  // Base address of each buffer
+    uint64_t buffer_size[num_buffer];  // Size (in bytes) of initialization data in each buffer 
+                                       // (from the `.data` file)
+    uint64_t buffer_allocsize[num_buffer];  // Actual allocated size (in bytes) of each buffer 
+                                            // (allocsize >= size)
+};
+```
+
+#### File Layout
+
+Each `uint64_t` occupies 8 bytes and is written sequentially in the `.metadata` file (2 lines for each `uint64_t`). Fields such as `buffer_base`, `buffer_size`, and `buffer_allocsize` are dynamically sized based on `num_buffer`.
+
+### `.data` File Structure
+
+The `.data` file contains initialization data for all buffers defined in the `.metadata` file. Key details include:
+
+- The file stores a total of `sum(buffer_size)` bytes, representing the initialization data for all buffers.
+- **Buffers are stored sequentially** in the file. The data for each buffer corresponds to its entry in the `buffer_base` and `buffer_size` fields in `.metadata`.  
+- Each buffer’s initialization data:
+  - Starts at its respective `buffer_base` address.
+  - Spans exactly `size` bytes as specified in `buffer_size`.
+
+## Memory Access
+
+- **Private Memory**:
+  - Accessed by each thread using a dedicated instruction.
+  - `allocSize` is the total size of private memory for the kernel.
+
+- **Global Memory**:
+  - Private memory and global memory share the same hierarchy and are accessed via the L2 cache.
+
+- **Local Memory**:
+  - Shared memory space within an SM.
+  - Each workgroup uses a portion of local memory, adjusted based on the `CSR_LDS` value of the block. During block allocation, the offset is added dynamically.
+  - The compiler ensures proper address adjustments during memory access.
+
+- **Register Allocation**:
+  - Registers within an SM are fixed in number. Each block occupies a portion of the available registers during execution.
+
+## Understanding Program Output in Our Project
 
 This section is dedicated to explaining the output generated by our program, which is crucial for developers who wish to understand the inner workings or debug the software. The output is structured to provide detailed insights into the program's execution, including instruction addresses, operations on warp units, and register manipulations.
 
-#### Warp Execution Output
+### Warp Execution Output
 
 The program output is like:
 
@@ -89,7 +182,7 @@ warp 2 0x80000200 0x0002a2fb v 5 0001 00000000 00000000 00000000 be8d0fac
 - **`v 5 0001`** indicates an operation on vector register 5 of the second warp, where `0001` is a mask specifying that only the last thread is active.
 - The data **`be8d0fac`** is written to the last element of the vector register due to the mask setting.
 
-#### Jump Instructions
+### Jump Instructions
 
 The output related to jump instructions follows this format:
 
@@ -99,7 +192,7 @@ warp 1 0x80000490 0x00008067 Jump? 1 800002f4
 
 - **`Jump? 1 800002f4`** indicates a conditional jump to the address `0x800002f4` depending on the evaluation of the preceding condition.
 
-#### Load/Store Instructions
+### Load/Store Instructions
 
 Load and store operations are crucial for reading from and writing to memory:
 
@@ -119,7 +212,7 @@ warp 2 0x80000240 0x0052607b lsu.w v  5 op 3 mask 0001 00000000 bdcccccd 3e54ad4
 warp 2 0x80000240 0x0052607b lsu.w fin
 ```
 
-#### Branching Output
+### Branching Output
 
 Branch-related outputs are essential for SIMT arch support. Example:
 

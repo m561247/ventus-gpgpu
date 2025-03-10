@@ -457,8 +457,8 @@ class DataCache(implicit p: Parameters) extends DCacheModule{
   InvOrFluMemReq.a_opcode := Mux(invalidatenodirty,L2flush.a_opcode, TLAOp_PutFull)//PutFullData:Get
   InvOrFluMemReq.a_param := Mux(invalidatenodirty,L2flush.a_param,0.U) //regular write
   InvOrFluMemReq.a_source := DontCare //wait for WSHR
-  InvOrFluMemReq.a_addr := RegNext(Cat(TagAccess.io.dirtyTag_st1.get,
-    TagAccess.io.dirtySetIdx_st0.get, 0.U((WordLength - TagBits - SetIdxBits).W)))
+  InvOrFluMemReq.a_addr := Cat(TagAccess.io.dirtyTag_st1.get,
+    RegNext(TagAccess.io.dirtySetIdx_st0.get), 0.U((WordLength - TagBits - SetIdxBits).W))
   InvOrFluMemReq.a_mask := VecInit(Seq.fill(BlockWords)(Fill(BytesOfWord,1.U)))
   //InvOrFluMemReq.a_data :=
   InvOrFluMemReq.hasCoreRsp := waitforL2flush_st2
@@ -571,7 +571,7 @@ class DataCache(implicit p: Parameters) extends DCacheModule{
   TagAccess.io.allocateWrite.valid := Mux(tagReqValidCtrl,memRsp_Q.io.deq.valid && memRspIsRead,false.B)
   TagAccess.io.allocateWrite.bits.setIdx := memRsp_Q.io.deq.bits.d_source(SetIdxBits-1,0)
   //TagAccess.io.allocateWriteData_st1 to be connected in memRsp_pipe2_cycle
-  probereadAllocateWriteConflict := io.coreReq.valid && RegNext(TagAccess.io.allocateWrite.valid)
+  probereadAllocateWriteConflict := io.coreReq.valid && TagAccess.io.allocateWrite.valid
   // ******     l1_data_cache::memRsp_pipe2_cycle      ******
   //missRspFromMshr_st1 := MshrAccess.io.missRspOut.valid//suffix _st2 is on another path comparing to cacheHit
   missRspTI_st1 := MshrAccess.io.missRspOut.bits.targetInfo.asTypeOf(new VecMshrTargetInfo)
