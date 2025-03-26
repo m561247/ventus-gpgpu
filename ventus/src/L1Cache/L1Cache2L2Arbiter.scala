@@ -31,8 +31,12 @@ class L1Cache2L2Arbiter(implicit p: Parameters) extends DCacheModule {
   // **** memReq ****
   val memReqArb = Module(new Arbiter(new L1CacheMemReq,NCacheInSM))
   memReqArb.io.in <> io.memReqVecIn
+  //tma
+  val cacheindex = Wire(Vec(NCacheInSM,UInt(log2Ceil(NCacheInSM).W)))
   for(i <- 0 until NCacheInSM) {
     memReqArb.io.in(i).bits.a_source := Cat(i.asUInt,io.memReqVecIn(i).bits.a_source)
+    cacheindex(i) := i.U  //tma
+    
   }
   io.memReqOut <> memReqArb.io.out
   // ****************

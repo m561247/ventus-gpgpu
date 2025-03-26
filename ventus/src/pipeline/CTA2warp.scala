@@ -50,6 +50,10 @@ class CTA2warp extends Module{
     val warpRsp=Flipped(Decoupled(new warpRspData))
     val wg_id_lookup=Input(UInt(depth_warp.W))
     val wg_id_tag=Output(UInt(TAG_WIDTH.W))
+
+    //518 dma
+    val wg_id_lookup_async = Input(UInt(depth_warp.W))
+    val wg_id_tag_async = Output(UInt(TAG_WIDTH.W))
   })
   val idx_using = RegInit(0.U(num_warp.W))  // current active warps in sm
 
@@ -76,4 +80,7 @@ class CTA2warp extends Module{
   CTArsp_fifo.ready := io.CTArsp.ready
   io.CTArsp.bits.cu2dispatch_wf_tag_done := data(CTArsp_fifo.bits.wid)
   io.CTArsp.valid := CTArsp_fifo.valid
+
+  //518 dma
+  io.wg_id_tag_async := data(io.wg_id_lookup_async)
 }

@@ -10,9 +10,12 @@
  * See the Mulan PSL v2 for more details. */
 package pipeline
 
+import L1Cache.{DCacheMemReq, DCacheMemReq_p, DCacheMemRsp}
 import L1Cache.ICache._
+import L1Cache.ShareMem.ShareMemCoreRsp
 import chisel3._
 import chisel3.util._
+import config.config.Parameters
 import top.parameters._
 
 class ICachePipeReq_np extends Bundle {
@@ -27,16 +30,23 @@ class ICachePipeRsp_np extends Bundle{
   val warpid = UInt(depth_warp.W)
   val status = UInt(2.W)
 }
-
-class pipe(val sm_id: Int = 0) extends Module{
+class DCacheCoreRsq_np_ex extends DCacheCoreRsp_np {
+   override val instrId = UInt((1 + log2Up(lsu_nMshrEntry)).W)
+ }
+ class ShareMemCoreRep_np_ex extends ShareMemCoreReq_np {
+   override val instrId = UInt((1 + log2Up(lsu_nMshrEntry)).W)
+ }
+class pipe(val sm_id: Int = 0) (implicit p: Parameters)extends Module{
   val io = IO(new Bundle{
     val icache_req = (DecoupledIO(new ICachePipeReq_np))
     val icache_rsp = Flipped(DecoupledIO(new ICachePipeRsp_np))
     val externalFlushPipe = ValidIO(UInt(depth_warp.W))
     val dcache_req = DecoupledIO(new DCacheCoreReq_np)
     val dcache_rsp = Flipped(DecoupledIO(new DCacheCoreRsp_np))
-    val shared_req = DecoupledIO(new ShareMemCoreReq_np)
-    val shared_rsp = Flipped(DecoupledIO(new DCacheCoreRsp_np))
+    // val shared_req = DecoupledIO(new ShareMemCoreReq_np)
+    // val shared_rsp = Flipped(DecoupledIO(new DCacheCoreRsp_np))
+    val shared_req = DecoupledIO(new ShareMemCoreRep_np_ex) //518 dma 
+    val shared_rsp = Flipped(DecoupledIO(new DCacheCoreRsq_np_ex))//518 dma
     val pc_reset = Input(Bool())
     val warpReq=Flipped(Decoupled(new warpReqData))
     val warpRsp=(Decoupled(new warpRspData))
@@ -45,6 +55,11 @@ class pipe(val sm_id: Int = 0) extends Module{
     val inst = if (SINGLE_INST) Some(Flipped(DecoupledIO(UInt(32.W)))) else None
     val inst_cnt = if(INST_CNT) Some(Output(UInt(32.W))) else None
     val inst_cnt2 = if(INST_CNT_2) Some(Output(Vec(2, UInt(32.W)))) else None
+    //518 dma
+    val dma_cache_req = Decoupled(new DCacheMemReq_p)
+    val dma_cache_rsp = Flipped(DecoupledIO(new DCacheMemRsp))
+    val wg_id_lookup_async = Output(UInt(depth_warp.W))
+    val wg_id_tag_async =Input(UInt(TAG_WIDTH.W))
   })
   val issue_stall=Wire(Bool())
   val flush=Wire(Bool())
@@ -373,8 +388,8 @@ class pipe(val sm_id: Int = 0) extends Module{
   lsu.io.dcache_rsp<>io.dcache_rsp
   lsu.io.dcache_req<>io.dcache_req
   lsu.io.lsu_rsp<>lsu2wb.io.lsu_rsp
-  lsu.io.shared_rsp<>io.shared_rsp
-  lsu.io.shared_req<>io.shared_req
+  // lsu.io.shared_rsp<>io.shared_rsp
+  // lsu.io.shared_req<>io.shared_req
 
   wb.io.in_x(0)<>alu.io.out
   wb.io.in_x(1)<>fpu.io.out_x
@@ -390,4 +405,53 @@ class pipe(val sm_id: Int = 0) extends Module{
   wb.io.in_v(5)<>tensorcore.io.out_v
 
   issue_stall:=(~issueX.io.in.ready).asBool | (~issueV.io.in.ready).asBool//scoreb.io.delay | issue.io.in.ready
+
+ //518 dma
+   val dma = Module(new DMA_core)
+  dma.io.dma_req <> issueX.io.out_DMA
+  issueV.io.out_DMA.ready := false.B
+  warp_sche.io.issued_dma.bits := issueX.io.out_DMA.bits.ctrl.wid
+  warp_sche.io.issued_dma.valid := dma.io.dma_req.fire
+
+  io.dma_cache_req <> dma.io.dma_cache_req
+  dma.io.dma_cache_rsp <> io.dma_cache_rsp
+  dma.io.fence_end_dma <> warp_sche.io.finished_dma
+
+  val shared_req_dma = Wire(DecoupledIO(new ShareMemCoreRep_np_ex))
+  shared_req_dma.bits.instrId := Cat(1.U, dma.io.shared_req.bits.instrId)
+  shared_req_dma.bits.data := dma.io.shared_req.bits.data
+  shared_req_dma.bits.isWrite := dma.io.shared_req.bits.isWrite
+  shared_req_dma.bits.setIdx := dma.io.shared_req.bits.setIdx
+  shared_req_dma.bits.perLaneAddr := dma.io.shared_req.bits.perLaneAddr
+  shared_req_dma.valid := dma.io.shared_req.valid
+  dma.io.shared_req.ready := shared_req_dma.ready
+
+
+  val shared_req_lsu = Wire(DecoupledIO(new ShareMemCoreRep_np_ex))
+  shared_req_lsu.bits.instrId := Cat(0.U, lsu.io.shared_req.bits.instrId)
+  shared_req_lsu.bits.data := lsu.io.shared_req.bits.data
+  shared_req_lsu.bits.isWrite := lsu.io.shared_req.bits.isWrite
+  shared_req_lsu.bits.setIdx := lsu.io.shared_req.bits.setIdx
+  shared_req_lsu.bits.perLaneAddr := lsu.io.shared_req.bits.perLaneAddr
+  shared_req_lsu.valid := lsu.io.shared_req.valid
+  lsu.io.shared_req.ready := shared_req_lsu.ready
+
+  val sharedreqArbiter = Module(new Arbiter(new ShareMemCoreRep_np_ex, n = 2))
+  shared_req_lsu <> sharedreqArbiter.io.in(0)
+  shared_req_dma <> sharedreqArbiter.io.in(1)
+  io.shared_req <> sharedreqArbiter.io.out
+
+  val shared_rsp_np = Wire(new DCacheCoreRsp_np)
+  shared_rsp_np.instrId := io.shared_rsp.bits.instrId(log2Up(lsu_nMshrEntry) - 1, 0)
+  shared_rsp_np.data := io.shared_rsp.bits.data
+  shared_rsp_np.activeMask := io.shared_rsp.bits.activeMask
+
+  dma.io.shared_rsp.bits <> shared_rsp_np
+  dma.io.shared_rsp.valid := Mux(io.shared_rsp.bits.instrId(log2Up(lsu_nMshrEntry)) === 1.U, io.shared_rsp.valid, false.B)
+  lsu.io.shared_rsp.bits <> shared_rsp_np
+  lsu.io.shared_rsp.valid := Mux(io.shared_rsp.bits.instrId(log2Up(lsu_nMshrEntry)) === 0.U, io.shared_rsp.valid, false.B)
+  io.shared_rsp.ready := Mux(io.shared_rsp.bits.instrId(log2Up(lsu_nMshrEntry)) === 1.U,dma.io.shared_rsp.ready, lsu.io.shared_rsp.ready)
+
+  io.wg_id_lookup_async:=warp_sche.io.wg_id_lookup_async
+  warp_sche.io.wg_id_tag_async:=io.wg_id_tag_async
 }

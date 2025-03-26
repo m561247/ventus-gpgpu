@@ -50,6 +50,7 @@ class Issue extends Module{
     val out_CSR=DecoupledIO(new csrExeData())
     val out_MUL=DecoupledIO(new vExeData)
     val out_TC=DecoupledIO(new vExeData)
+    val out_DMA=DecoupledIO(new vExeData)
   })
   val inputBuf=Queue.apply(io.in,0)//Module(new Queue(new vExeData,entries = 1,pipe=true))
 
@@ -94,6 +95,9 @@ class Issue extends Module{
   io.out_warpscheduler.valid:=false.B
   io.out_CSR.valid:=false.B
   io.out_SFU.valid:=false.B
+  // 518 dma
+  io.out_DMA.valid := false.B
+  io.out_DMA.bits := inputBuf.bits
   inputBuf.ready:=false.B
   when(inputBuf.bits.ctrl.tc){
     io.out_TC.valid:=inputBuf.valid
@@ -110,6 +114,14 @@ class Issue extends Module{
   }.elsewhen(inputBuf.bits.ctrl.mul){
     io.out_MUL.valid:=inputBuf.valid
     inputBuf.ready:=io.out_MUL.ready
+  }
+  .elsewhen(inputBuf.bits.ctrl.dma && inputBuf.bits.ctrl.funct.asUInt =/= 4.U) { // not mbarrier
+    io.out_DMA.valid := inputBuf.valid
+    inputBuf.ready := io.out_DMA.ready
+  }
+  .elsewhen(inputBuf.bits.ctrl.dma && inputBuf.bits.ctrl.funct.asUInt === 4.U) { // dma mbarrier
+    io.out_warpscheduler.valid := inputBuf.valid
+    inputBuf.ready := io.out_warpscheduler.ready
   }
     .elsewhen(inputBuf.bits.ctrl.mem){
     //io.out_LSU<>inputBuf

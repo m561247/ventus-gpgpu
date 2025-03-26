@@ -21,18 +21,18 @@ object parameters { //notice log2Ceil(4) returns 2.that is ,n is the total num, 
 
   def regext_width = 3
 
-  var num_warp = 8
+  var num_warp = 2
 
   def num_cluster = 1
 
   def num_sm_in_cluster = num_sm / num_cluster
-  def depth_warp = if (num_warp == 1) 1 else log2Ceil(num_warp)
-
+  // def depth_warp = if (num_warp == 1) 1 else log2Ceil(num_warp)
+  def depth_warp = if (num_warp > num_bank)  log2Ceil(num_warp) else log2Ceil(num_bank) //log2Ceil(num_warp)  512 dma
   // for register file bank access only, in operand collector
   // Calculate the highest slice index, ensuring it does not exceed the actual width of 'wid'
   def widSliceHigh = scala.math.min(log2Ceil(num_bank) - 1, depth_warp - 1)
 
-  var num_thread = 8
+  var num_thread = 16
 
   def depth_thread = log2Ceil(num_thread)
 
@@ -128,7 +128,7 @@ object parameters { //notice log2Ceil(4) returns 2.that is ,n is the total num, 
 
   def sig_length = 33
 
-  def num_cache_in_sm = 2
+  def num_cache_in_sm = 3  //518 dma 
 
   def num_l2cache = 1
 
@@ -192,5 +192,87 @@ object parameters { //notice log2Ceil(4) returns 2.that is ,n is the total num, 
     }
     val DEBUG = true
   }
+
+  //518 dma-xrn
+  def BitsOfByte = 8
+
+  def maxcopysize = 16 // bytes
+
+  def shared_aligned = 4 //bytes
+
+  var shared_aligned_bits = shared_aligned * 8 //bytes
+
+  def dma_aligned_bulk = 4 // bytes
+
+  var dma_aligned_bulk_bits = dma_aligned_bulk * 8 // bytes
+
+  def max_dma_inst = if(num_warp >= 4) num_warp else 4
+
+  def max_dma_tag = 8
+
+  def max_l2cacheline = 6
+
+  def cacheline = dcache_BlockWords * 4 //number_thread*4= 16*4(word_size=4 Byte)=64 // Math.pow(2, l2cachetagbits << 2).toInt //bytes
+
+  var l2cacheline = cacheline   //number_thread*4= 16*4(word_size=4 Byte)=64
+  var sharedcacheline = cacheline
+
+  def l2wayBits = log2Ceil(l2cache_NWays) //4
+
+  def l2setBits = log2Ceil(l2cache_NSets) //6
+
+  def l2offsetBits = log2Ceil(l2cache_BlockWords << 2) // 7
+
+  def l2cBits = log2Ceil(num_l2cache) //1
+
+  var l2cachetagbits = xLen - (l2setBits + l2offsetBits + l2cBits)
+  //  var l2cachetagbits = xLen - (l2wayBits + l2setBits + l2offsetBits + l2cBits)
+  // 32 - (4 + 5 + 7) = 16
+  var l2cachesetbits = l2setBits
+
+  //  var sharedsetbits = dcache_SetIdxBits
+  def addr_tag_bits = xLen - log2Ceil(l2cacheline)
+  def addr_set_bits = xLen - log2Ceil(sharedcacheline)
+
+  def numgroupl2cache = l2cacheline / dma_aligned_bulk  // (number_thread*4= 16*4(word_size=4 Byte) )  / 4  =64 /4 =16
+
+  def numgroupshared = num_thread * 4 / dma_aligned_bulk  // (number_thread*4= 16*4(word_size=4 Byte) )  / 4  =64 /4 =16
+
+  def numgroupinsdmax = maxcopysize / dma_aligned_bulk
+
+  def warp_align_async = if(num_warp >= 4) 4 else 1
+
+  def num_wgroup = num_warp_in_a_block/warp_align_async
+
+
+
+  def Binary_   = 0// 00000                 
+  def INT4      = 1// 00001        
+  def FP4_E3M0  = 2// 00010            
+  def FP4_E2M1  = 3// 00011                 
+  def FP6_E3M2  = 4// 00100            
+  def FP6_E2M3  = 5// 00101                 
+  def INT8      = 6// 00110        
+  def UINT8     = 7// 00111         
+  def FP8_E4M3  = 8// 01000            
+  def FP8_E5M2  = 9// 01001   
+
+  def INT16     = 10// 01010         
+  def UINT16    = 11// 01011          
+  def FP16      = 12// 01100         
+  def BF16      = 13// 01101  
+
+  def INT32     = 14// 01110         
+  def UINT32    = 15// 01111          
+  def FP32      = 16// 10000        
+  def FP32_FTZ  = 17// 10001                 
+  def TF32      = 18// 10010                 
+  def TF32_FTZ  = 19// 10011   
+
+  def INT64     = 20// 10100         
+  def UINT64    = 21// 10101          
+  def FP64      = 22// 10110
+
+  def paLen = 34
 
 }

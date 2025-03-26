@@ -252,7 +252,7 @@ class SM_wrapper(FakeCache: Boolean = false, sm_id: Int = 0) extends Module{
   val cta2warp=Module(new CTA2warp)
   cta2warp.io.CTAreq<>io.CTAreq
   cta2warp.io.CTArsp<>io.CTArsp
-  val pipe=Module(new pipe(sm_id))
+  val pipe=Module(new pipe(sm_id)(param))
   pipe.io.pc_reset:=true.B
   io.inst_cnt.foreach(_ := pipe.io.inst_cnt.getOrElse(0.U))
   io.inst_cnt2.foreach( _ := pipe.io.inst_cnt2.getOrElse(0.U))
@@ -349,6 +349,30 @@ class SM_wrapper(FakeCache: Boolean = false, sm_id: Int = 0) extends Module{
   pipe.io.shared_rsp.bits.instrId:=sharedmem.io.coreRsp.bits.instrId
   pipe.io.shared_rsp.bits.activeMask:=sharedmem.io.coreRsp.bits.activeMask
   // pipe.io.shared_rsp.bits.isWrite:=sharedmem.io.coreRsp.bits.isWrite
+
+  //518 dma
+
+   l1Cache2L2Arb.io.memReqVecIn(2).valid := pipe.io.dma_cache_req.valid
+   l1Cache2L2Arb.io.memReqVecIn(2).bits.a_opcode := 4.U(3.W)
+   l1Cache2L2Arb.io.memReqVecIn(2).bits.a_addr := pipe.io.dma_cache_req.bits.a_addr
+   l1Cache2L2Arb.io.memReqVecIn(2).bits.a_source := pipe.io.dma_cache_req.bits.a_source
+   l1Cache2L2Arb.io.memReqVecIn(2).bits.a_data := 0.U.asTypeOf(Vec(dcache_BlockWords, UInt(xLen.W)))
+   l1Cache2L2Arb.io.memReqVecIn(2).bits.a_mask.foreach {
+     _ := true.B
+   }
+   l1Cache2L2Arb.io.memReqVecIn(2).bits.a_param := DontCare
+   pipe.io.dma_cache_req.ready := l1Cache2L2Arb.io.memReqVecIn(2).ready
+ 
+   pipe.io.dma_cache_rsp.valid := l1Cache2L2Arb.io.memRspVecOut(2).valid
+   pipe.io.dma_cache_rsp.bits.d_source := l1Cache2L2Arb.io.memRspVecOut(2).bits.d_source
+   pipe.io.dma_cache_rsp.bits.d_addr := l1Cache2L2Arb.io.memRspVecOut(2).bits.d_addr
+   pipe.io.dma_cache_rsp.bits.d_data := l1Cache2L2Arb.io.memRspVecOut(2).bits.d_data
+   pipe.io.dma_cache_rsp.bits.d_opcode := l1Cache2L2Arb.io.memRspVecOut(2).bits.d_opcode
+   l1Cache2L2Arb.io.memRspVecOut(2).ready := pipe.io.dma_cache_rsp.ready
+
+   //518 dma
+   pipe.io.wg_id_tag_async := cta2warp.io.wg_id_tag_async
+   cta2warp.io.wg_id_lookup_async := pipe.io.wg_id_lookup_async
 }
 
 
