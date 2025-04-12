@@ -21,7 +21,7 @@ object parameters { //notice log2Ceil(4) returns 2.that is ,n is the total num, 
 
   def regext_width = 3
 
-  var num_warp = 2
+  var num_warp =  8   //max num_warp in a SM
 
   def num_cluster = 1
 
@@ -32,7 +32,7 @@ object parameters { //notice log2Ceil(4) returns 2.that is ,n is the total num, 
   // Calculate the highest slice index, ensuring it does not exceed the actual width of 'wid'
   def widSliceHigh = scala.math.min(log2Ceil(num_bank) - 1, depth_warp - 1)
 
-  var num_thread = 16
+  var num_thread = 32
 
   def depth_thread = log2Ceil(num_thread)
 
@@ -53,7 +53,7 @@ object parameters { //notice log2Ceil(4) returns 2.that is ,n is the total num, 
 
   def num_block = 8// not bigger than num_warp
 
-  def num_warp_in_a_block = num_warp
+  def num_warp_in_a_block = num_warp  //max warp in a block
 
   def num_lane = num_thread // 2
 
@@ -242,7 +242,7 @@ object parameters { //notice log2Ceil(4) returns 2.that is ,n is the total num, 
 
   def warp_align_async = if(num_warp >= 4) 4 else 1
 
-  def num_wgroup = num_warp_in_a_block/warp_align_async
+  def num_wgroup = num_warp/warp_align_async
 
 
 
