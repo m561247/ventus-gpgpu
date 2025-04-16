@@ -42,6 +42,11 @@ test:
 verilog:
 	./mill ventus[6.4.0].run
 
+fpga-verilog:
+	./mill ventus[6.4.0].runMain circt.stage.ChiselMain --module top.GPGPU_axi_adapter_top --target chirrtl --target-dir gen_fpga_verilog/
+	cd gen_fpga_verilog/ &&  ~/.cache/llvm-firtool/1.62.0/bin/firtool --split-verilog --repl-seq-mem --repl-seq-mem-file=mem.conf -o . GPGPU_axi_adapter_top.fir
+	./scripts/gen_sep_mem.sh ./scripts/vlsi_mem_gen gen_fpga_verilog/mem.conf gen_fpga_verilog/
+
 clean:
 	rm -rf out/ test_run_dir/ .idea/
 

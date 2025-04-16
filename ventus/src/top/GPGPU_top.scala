@@ -126,6 +126,7 @@ class GPGPU_axi_top extends Module{
   gpgpu_top.io.out_d(0)<>axi_adapter.io.l2cache_outd
   gpgpu_top.io.host_req<>axi_lite_adapter.io.data
   gpgpu_top.io.host_rsp<>axi_lite_adapter.io.rsp
+  gpgpu_top.io.cycle_cnt:=0.U
 }
 class GPGPU_axi_adapter_top extends Module{
   val l2cache_axi_params=AXI4BundleParameters(32,64,log2Up(l2cache_micro.num_sm)+log2Up(l2cache_micro.num_warp)+1)
@@ -399,7 +400,7 @@ class SM2clusterArbiter(L2param: InclusiveCacheParameters_lite)(implicit p: Para
     }
    // io.memRspVecOut(i).valid :=
     else {
-      io.memRspIn.bits.source(log2Up(NSmInCluster) + log2Ceil(NCacheInSM) + l1cache_sourceBits- 1, l1cache_sourceBits + log2Ceil(NCacheInSM)) === i.asUInt && io.memRspIn.valid
+      io.memRspVecOut(i).valid := io.memRspIn.bits.source(log2Up(NSmInCluster) + log2Ceil(NCacheInSM) + l1cache_sourceBits- 1, l1cache_sourceBits + log2Ceil(NCacheInSM)) === i.asUInt && io.memRspIn.valid
     }
   }
   if(NSmInCluster == 1){

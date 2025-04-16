@@ -44,7 +44,7 @@ class FloatRegFileBank extends Module  {
   val bypassSignal = Wire(Bool())
   bypassSignal := RegNext((io.rsidx === io.rdidx) & io.rdwen)
   io.rs := Mux(bypassSignal,RegNext(io.rd),regs.read(io.rsidx))
-  io.v0 := regs.read(0.U)
+  io.v0 := WireInit(VecInit.fill(num_thread)(~(0.U(xLen.W))))
   internalMask:=io.rdwmask
   when (io.rdwen) {
     regs.write(io.rdidx, io.rd, internalMask)

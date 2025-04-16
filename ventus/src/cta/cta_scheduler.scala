@@ -103,7 +103,8 @@ class io_cta2host extends Bundle {
   val cu_id = UInt(log2Ceil(CONFIG.GPU.NUM_CU).W)   // For CTA schedule strategy research
 }
 
-class cta_scheduler_top(val NUM_CU: Int = CONFIG.GPU.NUM_CU) extends Module {
+class cta_scheduler_top() extends Module {
+  val NUM_CU = CONFIG.GPU.NUM_CU
   val io = IO(new Bundle{
     val host_wg_new = Flipped(DecoupledIO(new io_host2cta))     // From Host, New wg info
     val host_wg_done = DecoupledIO(new io_cta2host)             // To host, ID of wg which finished its execution
@@ -146,7 +147,7 @@ class cta_scheduler_top(val NUM_CU: Int = CONFIG.GPU.NUM_CU) extends Module {
 
 object emitVerilog extends App {
   chisel3.emitVerilog(
-    new cta_scheduler_top(CONFIG.GPU.NUM_CU),
+    new cta_scheduler_top(),
     Array("--target-dir", "generated/")
   )
 }

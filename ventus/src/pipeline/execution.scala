@@ -117,7 +117,7 @@ class vTCexe_mult_slot extends Module{
     val rm = Input(UInt(3.W))   // rounding mode
     val out_v = DecoupledIO(new WriteVecCtrl)
   })
-  val tensor = Module(new TensorCore_MixedPrecision_multslot_simple(DimM=8, DimN=8, DimK=8, slot_num = num_warp, xDatalen=16, new TCCtrl_mulslot_v2(xLen, depth_warp)))
+  val tensor = Module(new TensorCore_MixedPrecision_multslot_simple(DimM=8, DimN=8, DimK=8, slot_num = 1, xDatalen=16, new TCCtrl_mulslot_v2(xLen, depth_warp)))
   val result_v = Module(new Queue(new WriteVecCtrl,1,pipe=true))
 
   // Get ctrl and rm.

@@ -4,7 +4,7 @@ import L2cache.{CacheParameters, InclusiveCacheMicroParameters, InclusiveCachePa
 import chisel3.util._
 
 object parameters { //notice log2Ceil(4) returns 2.that is ,n is the total num, not the last idx.
-  def num_sm = 2
+  def num_sm = 4
   val SINGLE_INST: Boolean = false
   val SPIKE_OUTPUT: Boolean = true
   val INST_CNT: Boolean = false
@@ -14,14 +14,14 @@ object parameters { //notice log2Ceil(4) returns 2.that is ,n is the total num, 
   val wid_to_check = 2
   def num_bank = 4                  // # of banks for register file
   def num_collectorUnit = num_warp
-  def num_vgpr:Int = 4096
-  def num_sgpr:Int = 4096
+  def num_vgpr:Int = 512 
+  def num_sgpr:Int = 256
   def depth_regBank = log2Ceil(num_vgpr/num_bank)
   def regidx_width = 5
 
   def regext_width = 3
 
-  var num_warp = 8
+  var num_warp = 16
 
   def num_cluster = 1
 
@@ -33,6 +33,11 @@ object parameters { //notice log2Ceil(4) returns 2.that is ,n is the total num, 
   def widSliceHigh = scala.math.min(log2Ceil(num_bank) - 1, depth_warp - 1)
 
   var num_thread = 32
+
+  // It seems that FPGA BRAM can't support too wide data
+  // So we split the vector register bank into several parts in chisel
+  def num_bank_split = (num_thread - 1) / 16 + 1 
+  require(num_thread % num_bank_split == 0)
 
   def depth_thread = log2Ceil(num_thread)
 
@@ -55,7 +60,7 @@ object parameters { //notice log2Ceil(4) returns 2.that is ,n is the total num, 
 
   def num_warp_in_a_block = num_warp
 
-  def num_lane = num_thread // 2
+  def num_lane = num_thread / 2 // 2
 
   def num_icachebuf = 1 //blocking for each warp
 
@@ -69,7 +74,7 @@ object parameters { //notice log2Ceil(4) returns 2.that is ,n is the total num, 
 
   def lsu_nMshrEntry = num_warp // less than num_warp
 
-  def dcache_NSets: Int = 256
+  def dcache_NSets: Int = 16
 
   def dcache_NWays: Int = 2
 
@@ -91,21 +96,21 @@ object parameters { //notice log2Ceil(4) returns 2.that is ,n is the total num, 
   def dcache_MshrSubEntry: Int = 2
   def num_sfu = (num_thread >> 2).max(1)
 
-  def sharedmem_depth = 1024
+  def sharedmem_depth = 32
 
   def sharedmem_BlockWords = dcache_BlockWords
 
   def sharemem_size = sharedmem_depth * sharedmem_BlockWords * 4 //bytes
 
-  def l2cache_NSets: Int = 64
+  def l2cache_NSets: Int = 16
 
-  def l2cache_NWays: Int = 16
+  def l2cache_NWays: Int = 2
 
   def l2cache_BlockWords: Int = dcache_BlockWords
 
-  def l2cache_writeBytes: Int = 1
+  def l2cache_writeBytes: Int = 8
 
-  def l2cache_memCycles: Int = 32
+  def l2cache_memCycles: Int = 2
 
   def l2cache_portFactor: Int = 2
 

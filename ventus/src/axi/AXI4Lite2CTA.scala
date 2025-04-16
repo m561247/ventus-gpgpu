@@ -100,6 +100,8 @@ class AXI4Lite2CTA(val addrWidth:Int, val busWidth:Int) extends Module{
   io.data.bits.host_kernel_size_3d(0):=regs(13)
   io.data.bits.host_kernel_size_3d(1):=regs(14)
   io.data.bits.host_kernel_size_3d(2):=regs(15)
+  io.data.bits.host_pds_size_per_wf := 0.U
+  io.data.bits.host_asid := 0.U
 
   switch(out_state) {
     is(out_sIdle) {
