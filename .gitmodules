@@ -1,13 +1,16 @@
 [submodule "dependencies/rocket-chip"]
 	path = dependencies/rocket-chip
-	url = git@github.com:chipsalliance/rocket-chip.git
+	url = https://github.com/chipsalliance/rocket-chip.git
+	shallow = true
 [submodule "dependencies/rocket-chip-inclusive-cache"]
 	path = dependencies/rocket-chip-inclusive-cache
-	url = git@github.com:chipsalliance/rocket-chip-inclusive-cache.git
+	url = https://github.com/chipsalliance/rocket-chip-inclusive-cache.git
+	shallow = true
 [submodule "dependencies/berkeley-hardfloat"]
 	path = dependencies/berkeley-hardfloat
-	url = git@github.com:ucb-bar/berkeley-hardfloat.git
+	url = https://github.com/ucb-bar/berkeley-hardfloat.git
+	shallow = true
 [submodule "dependencies/fpuv2"]
 	path = dependencies/fpuv2
-	url = git@github.com:liuxd17thu/fpuv2.git
+	url = https://github.com/liuxd17thu/fpuv2.git
 	branch = chisel6
